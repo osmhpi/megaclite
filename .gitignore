@@ -3,3 +3,4 @@ data/
 .ipynb_checkpoints
 model-*
 state-*
+__pycache__/*
