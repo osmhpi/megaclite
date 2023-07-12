@@ -1,4 +1,3 @@
-
 print("Training starts now")
 model = model.to(device)
 criterion = nn.CrossEntropyLoss()
@@ -12,12 +11,11 @@ for epoch in range(num_epochs):
 
     ## training step
     for i, (images, labels) in enumerate(trainloader):
-
         images = images.to(device)
         labels = labels.to(device)
 
         ## forward + backprop + loss
-        with autocast(device_type='cuda', dtype=torch.float16):
+        with autocast(device_type="cuda", dtype=torch.float16):
             logits = model(images)
             loss = criterion(logits, labels)
 
@@ -32,5 +30,7 @@ for epoch in range(num_epochs):
         train_acc += get_accuracy(logits, labels, BATCH_SIZE)
 
     model.eval()
-    print('Epoch: %d | Loss: %.4f | Train Accuracy: %.2f' \
-            %(epoch, train_running_loss / i, train_acc/i))
+    print(
+        "Epoch: %d | Loss: %.4f | Train Accuracy: %.2f"
+        % (epoch, train_running_loss / i, train_acc / i)
+    )

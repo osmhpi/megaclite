@@ -1,7 +1,7 @@
 import argparse
-from io import BytesIO
 import shlex
 from datetime import datetime
+from io import BytesIO
 from multiprocessing.connection import Client
 from pathlib import Path
 
@@ -41,7 +41,7 @@ class RemoteTrainingMagics(Magics):
             print(message, end="")
         weights_file = BytesIO(conn.recv_bytes())
         device = torch.device("cpu")
-        model.load_state_dict(torch.load(weights_file,map_location=device))
+        model.load_state_dict(torch.load(weights_file, map_location=device))
         # Path(filename).unlink()
         # Path(weights_file).unlink()
 
