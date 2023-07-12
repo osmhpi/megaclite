@@ -1,4 +1,5 @@
 import argparse
+from io import BytesIO
 import shlex
 from datetime import datetime
 from multiprocessing.connection import Client
@@ -28,20 +29,21 @@ class RemoteTrainingMagics(Magics):
         conn = Client(address, authkey=self.key.encode())
 
         filename = f"state-{datetime.now().isoformat()}"
-        dill.dump_module(filename)
-        conn.send(filename)
+        file = BytesIO()
+        dill.dump_module(file)
+        display(HTML(f"<i>sending {len(file.getbuffer())/2**20:.0f}MB of state<i>"))
         conn.send(cell)
         conn.send(model_name)
+        conn.send_bytes(file.getbuffer())
 
         stdout_listener = Client((self.host, 6002), authkey=b"secret password")
         while (message := stdout_listener.recv()) != "DONE":
             print(message, end="")
-
-        weights_file = conn.recv()
+        weights_file = BytesIO(conn.recv_bytes())
         device = torch.device("cpu")
-        model.load_state_dict(torch.load(weights_file, map_location=device))
-        Path(filename).unlink()
-        Path(weights_file).unlink()
+        model.load_state_dict(torch.load(weights_file,map_location=device))
+        # Path(filename).unlink()
+        # Path(weights_file).unlink()
 
     @line_magic
     def remote_config(self, line):
@@ -65,7 +67,7 @@ class RemoteTrainingMagics(Magics):
             raise TypeError("%%remote missing 1 required positional argument: 'model'")
 
         model_name = line.strip()
-        display(HTML(f"<i>sending {model_name} to remote gpu</i>"))
+        display(HTML(f"<i>training `{model_name}` on remote gpu</i>"))
         self.send_training_job(cell, local_ns[model_name], model_name)
 
     # @line_cell_magic
