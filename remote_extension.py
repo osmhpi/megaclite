@@ -42,8 +42,6 @@ class RemoteTrainingMagics(Magics):
         weights_file = BytesIO(conn.recv_bytes())
         device = torch.device("cpu")
         model.load_state_dict(torch.load(weights_file, map_location=device))
-        # Path(filename).unlink()
-        # Path(weights_file).unlink()
 
     @line_magic
     def remote_config(self, line):
