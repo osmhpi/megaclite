@@ -8,10 +8,26 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "megaclyte"
+version = "0.0.2"
+description = "Remote GPU training for Jupyter"
+requires-python = ">=3.9"
 authors = [{name = "Felix Grzelka", email = "Felix.Grzelka@hpi.de"}]
 license = {file = "LICENSE"}
 classifiers = ["License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)"]
-dynamic = ["version", "description"]
+dynamic = [
+    #"version",
+    "readme"]
+dependencies = [
+    "requests",
+    'importlib-metadata; python_version<"3.8"',
+]
+
+[tool.setuptools]
+packages = ["megaclyte"]
 
 [project.urls]
 Home = "https://osm.hpi.de"
+
+[tool.setuptools.dynamic]
+# version = {attr = "my_package.VERSION"}
+readme = {file = ["README.md"]}
