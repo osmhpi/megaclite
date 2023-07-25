@@ -4,3 +4,9 @@ data/
 model-*
 state-*
 __pycache__/*
+tls_client.py
+tls_server.py
+*.pem
+build/*
+megaclyte.egg-info/*
+megaclyte/__pycache__/*
