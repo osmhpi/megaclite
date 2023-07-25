@@ -18,8 +18,8 @@ dynamic = [
     #"version",
     "readme"]
 dependencies = [
-    "requests",
-    'importlib-metadata; python_version<"3.8"',
+    "dill==0.3.6",
+    "ipython==8.13.1",
 ]
 
 [tool.setuptools]
