@@ -29,7 +29,8 @@ def collect_client_info() -> ClientInfo:
 
 @magics_class
 class RemoteTrainingMagics(Magics):
-    def __post_init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.host: str = "127.0.0.1"
         self.port: str = 6001
         self.key: str = None
