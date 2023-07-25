@@ -20,6 +20,7 @@ dynamic = [
 dependencies = [
     "dill==0.3.6",
     "ipython==8.13.1",
+    "ipykernel==6.22.0"
 ]
 
 [tool.setuptools]
