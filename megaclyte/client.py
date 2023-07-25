@@ -17,7 +17,7 @@ from IPython.core.magic import (
     needs_local_scope,
 )
 
-from messages import ClientInfo, Job, JobInfo, JobState, StdOut
+from .messages import ClientInfo, Job, JobInfo, JobState, StdOut
 from pip._internal.operations import freeze
 
 

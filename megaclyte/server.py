@@ -9,7 +9,7 @@ from pathlib import Path
 
 import click
 
-from messages import Job, JobInfo, JobState, StdOut
+from .messages import Job, JobInfo, JobState, StdOut
 
 
 def install_python_version(version: str):
@@ -134,7 +134,7 @@ def execute_in_subprocess(tmp_dir: Path, job: Job, conn: Connection):
         [
             get_python(tmp_dir),
             "-m",
-            "runtime",
+            "_runtime",
             str(state_file),
             str(cell_file),
             job.model_name,
