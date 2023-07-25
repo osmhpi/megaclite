@@ -1,3 +1,4 @@
+import sys
 import argparse
 import shlex
 from datetime import datetime
@@ -16,32 +17,53 @@ from IPython.core.magic import (
     needs_local_scope,
 )
 
+from messages import ClientInfo, Job, JobInfo, JobState, StdOut
+from pip._internal.operations import freeze
+
+
+def collect_client_info() -> ClientInfo:
+    return ClientInfo(
+        python_version=sys.version.split(" ")[0], packages=list(freeze.freeze())
+    )
+
 
 @magics_class
 class RemoteTrainingMagics(Magics):
     def __post_init__(self):
-        self.host: str = None
-        self.port: str = None
+        self.host: str = "127.0.0.1"
+        self.port: str = 6001
         self.key: str = None
 
     def send_training_job(self, cell: str, model, model_name: str):
         address = (self.host, self.port)
-        conn = Client(address, authkey=self.key.encode())
+        conn = Client(address)
 
-        filename = f"state-{datetime.now().isoformat()}"
         file = BytesIO()
         dill.dump_module(file)
-        display(HTML(f"<i>sending {len(file.getbuffer())/2**20:.0f}MB of state<i>"))
-        conn.send(cell)
-        conn.send(model_name)
-        conn.send_bytes(file.getbuffer())
+        display(HTML(f"<i>Sending {len(file.getbuffer())/2**20:.0f}MB of state.<i>"))
+        job = Job(cell, model_name, file.getvalue(), client=collect_client_info())
+        conn.send(job)
 
-        stdout_listener = Client((self.host, 6002), authkey=b"secret password")
-        while (message := stdout_listener.recv()) != "DONE":
-            print(message, end="")
-        weights_file = BytesIO(conn.recv_bytes())
-        device = torch.device("cpu")
-        model.load_state_dict(torch.load(weights_file, map_location=device))
+        while message := conn.recv():
+            if isinstance(message, JobInfo):
+                if message.state == JobState.PENDING:
+                    display(
+                        HTML(
+                            f"<i>You are number {message.no_in_queue + 1} in the queue.<i>"
+                        )
+                    )
+                elif message.state == JobState.STARTED:
+                    display(HTML(f"<i>Job started executing.<i>"))
+                elif message.state == JobState.FINISHED:
+                    display(HTML(f"<i>Retrieving weights from remote.<i>"))
+                    weights_file = BytesIO(message.result)
+                    device = torch.device("cpu")
+                    model.load_state_dict(torch.load(weights_file, map_location=device))
+                if message.state.exited:
+                    display(HTML(f"<i>Job exited with status {str(message.state)}.<i>"))
+                    break
+            elif isinstance(message, StdOut):
+                print(message.line, end="")
 
     @line_magic
     def remote_config(self, line):
@@ -49,13 +71,13 @@ class RemoteTrainingMagics(Magics):
         parser = argparse.ArgumentParser(description="Process some integers.")
         parser.add_argument("host", type=str)
         parser.add_argument("port", type=int)
-        parser.add_argument("key", type=str)
+        # parser.add_argument("key", type=str)
 
         args = parser.parse_args(shlex.split(line))
 
         self.host = args.host
         self.port = args.port
-        self.key = args.key
+        # self.key = args.key
 
     @cell_magic
     @needs_local_scope
