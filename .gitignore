@@ -8,5 +8,5 @@ tls_client.py
 tls_server.py
 *.pem
 build/*
-megaclyte.egg-info/*
-megaclyte/__pycache__/*
+megaclite.egg-info/*
+megaclite/__pycache__/*

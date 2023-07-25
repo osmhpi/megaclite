@@ -7,7 +7,7 @@ requires = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "megaclyte"
+name = "megaclite"
 version = "0.0.2"
 description = "Remote GPU training for Jupyter"
 requires-python = ">=3.9"
@@ -25,7 +25,7 @@ dependencies = [
 ]
 
 [tool.setuptools]
-packages = ["megaclyte"]
+packages = ["megaclite"]
 
 [project.urls]
 Home = "https://osm.hpi.de"
