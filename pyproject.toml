@@ -20,7 +20,8 @@ dynamic = [
 dependencies = [
     "dill==0.3.6",
     "ipython==8.13.1",
-    "ipykernel==6.22.0"
+    "ipykernel==6.22.0",
+    "click==8.1.3"
 ]
 
 [tool.setuptools]
@@ -28,6 +29,11 @@ packages = ["megaclyte"]
 
 [project.urls]
 Home = "https://osm.hpi.de"
+
+[project.optional-dependencies]
+demo = ["torch==2.0.0",
+        "torchvision==0.15.1"
+    ]
 
 [tool.setuptools.dynamic]
 # version = {attr = "my_package.VERSION"}
