@@ -12,6 +12,9 @@ import click
 from .messages import Job, JobInfo, JobState, StdOut
 
 
+EXCLUDED_PACKAGES = ["megaclyte"]
+ADDITIONAL_PACKAGES = ["click"]
+
 def install_python_version(version: str):
     """Install the requested python version."""
     # shell injection waiting to happen :)
@@ -65,6 +68,9 @@ import hashlib
 def create_venv_with_requirements(version, requirements: list[str]):
     """Create a new venv with the requested python version and packages."""
     print("creating venv with python version", version)
+    
+    requirements = [r for r in requirements if r.split("==")[0] not in EXCLUDED_PACKAGES]
+    requirements.extend(ADDITIONAL_PACKAGES)
     message = hashlib.sha256()
     message.update(version.encode())
     for req in sorted(requirements):
@@ -83,6 +89,11 @@ def create_venv_with_requirements(version, requirements: list[str]):
     subprocess.run(
         [str(get_pip(tmp_path)), "install", "-r", "/dev/stdin"],
         input="\n".join(requirements),
+        text=True,
+        check=True,
+    )
+    subprocess.run(
+        [str(get_pip(tmp_path)), "install", "."],
         text=True,
         check=True,
     )
