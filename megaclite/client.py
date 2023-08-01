@@ -93,7 +93,7 @@ class RemoteTrainingMagics(Magics):
     def run_remote(self, line):
         """Use: %remote_config <host> <port> <key>"""
         display(HTML(f"<i>executing command `{line}` on remote host</i>"))
-        job = BashJob(command=line)
+        job = BashJob(command=line, client=collect_client_info())
         self.send_job(job=job)
 
     @cell_magic
