@@ -10,11 +10,14 @@ class ClientInfo:
 
 
 @dataclass
-class Job:
+class TrainingJob:
     cell: str
     model_name: str
     state: bytes
     client: ClientInfo
+
+class BashJob:
+    command: str
 
 
 @dataclass

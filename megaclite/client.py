@@ -5,6 +5,7 @@ from datetime import datetime
 from io import BytesIO
 from multiprocessing.connection import Client
 from pathlib import Path
+from typing import Optional
 
 import dill
 import torch
@@ -17,7 +18,7 @@ from IPython.core.magic import (
     needs_local_scope,
 )
 
-from .messages import ClientInfo, Job, JobInfo, JobState, StdOut
+from .messages import BashJob, ClientInfo, TrainingJob, JobInfo, JobState, StdOut
 from pip._internal.operations import freeze
 
 
@@ -34,15 +35,10 @@ class RemoteTrainingMagics(Magics):
         self.host: str = "127.0.0.1"
         self.port: str = 6001
         self.key: str = None
-
-    def send_training_job(self, cell: str, model, model_name: str):
+    
+    def send_job(self, job, on_success:Optional[callable] = None):
         address = (self.host, self.port)
         conn = Client(address)
-
-        file = BytesIO()
-        dill.dump_module(file)
-        display(HTML(f"<i>Sending {len(file.getbuffer())/2**20:.0f}MB of state.<i>"))
-        job = Job(cell, model_name, file.getvalue(), client=collect_client_info())
         conn.send(job)
 
         while message := conn.recv():
@@ -57,14 +53,27 @@ class RemoteTrainingMagics(Magics):
                     display(HTML(f"<i>Job started executing.<i>"))
                 elif message.state == JobState.FINISHED:
                     display(HTML(f"<i>Retrieving weights from remote.<i>"))
-                    weights_file = BytesIO(message.result)
-                    device = torch.device("cpu")
-                    model.load_state_dict(torch.load(weights_file, map_location=device))
+                    if on_success:
+                        on_success(message)
                 if message.state.exited:
                     display(HTML(f"<i>Job exited with status {str(message.state)}.<i>"))
                     break
             elif isinstance(message, StdOut):
                 print(message.line, end="")
+
+    def send_training_job(self, cell: str, model, model_name: str):
+        file = BytesIO()
+        dill.dump_module(file)
+        display(HTML(f"<i>Sending {len(file.getbuffer())/2**20:.0f}MB of state.<i>"))
+        job = TrainingJob(cell, model_name, file.getvalue(), client=collect_client_info())
+
+        def success_handler(message):
+            weights_file = BytesIO(message.result)
+            device = torch.device("cpu")
+            model.load_state_dict(torch.load(weights_file, map_location=device))
+        
+        self.send_job(job=job, on_success=success_handler)
+       
 
     @line_magic
     def remote_config(self, line):
@@ -79,6 +88,13 @@ class RemoteTrainingMagics(Magics):
         self.host = args.host
         self.port = args.port
         # self.key = args.key
+
+    @line_magic
+    def run_remote(self, line):
+        """Use: %remote_config <host> <port> <key>"""
+        display(HTML(f"<i>executing command `{line}` on remote host</i>"))
+        job = BashJob(command=line)
+        self.send_job(job=job)
 
     @cell_magic
     @needs_local_scope

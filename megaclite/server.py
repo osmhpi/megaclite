@@ -9,7 +9,7 @@ from pathlib import Path
 
 import click
 
-from .messages import Job, JobInfo, JobState, StdOut
+from .messages import BashJob, TrainingJob, JobInfo, JobState, StdOut
 
 
 EXCLUDED_PACKAGES = ["megaclite"]
@@ -131,7 +131,7 @@ class RemoteStdout:
 #     queue.put(out_file.getvalue())
 
 
-def execute_in_subprocess(tmp_dir: Path, job: Job, conn: Connection):
+def execute_in_subprocess(tmp_dir: Path, job: TrainingJob, conn: Connection):
     """Setup the subprocess execution with stdout redirect."""
 
     state_file = get_state_file(tmp_dir)
@@ -145,7 +145,7 @@ def execute_in_subprocess(tmp_dir: Path, job: Job, conn: Connection):
         [
             get_python(tmp_dir),
             "-m",
-            "_runtime",
+            "megaclite._runtime",
             str(state_file),
             str(cell_file),
             job.model_name,
@@ -153,7 +153,7 @@ def execute_in_subprocess(tmp_dir: Path, job: Job, conn: Connection):
         ],
         stdout=subprocess.PIPE,
         text=True,
-        cwd=str(Path(__file__).parent),
+        cwd=str(tmp_dir),
     ) as process:
         conn.send(JobInfo(state=JobState.STARTED, no_in_queue=0))
 
@@ -163,6 +163,23 @@ def execute_in_subprocess(tmp_dir: Path, job: Job, conn: Connection):
     conn.send(
         JobInfo(state=JobState.FINISHED, no_in_queue=0, result=output_file.read_bytes())
     )
+
+
+
+def execute_bash_script(tmp_dir: Path, job: BashJob, conn: Connection):
+    with subprocess.Popen(
+       ["/bin/bash", "-c", job.command],
+        stdout=subprocess.PIPE,
+        text=True,
+        cwd=str(tmp_dir),
+    ) as process:
+        conn.send(JobInfo(state=JobState.STARTED, no_in_queue=0))
+
+        for line in iter(process.stdout.readline, ""):
+            conn.send(StdOut(line))
+
+    conn.send(
+        JobInfo(state=JobState.FINISHED, no_in_queue=0))
 
 
 def worker_main(queue):
@@ -192,9 +209,16 @@ def main(host, port):
         try:
             conn = listener.accept()
             message = conn.recv()
-            if isinstance(message, Job):
+            if isinstance(message, TrainingJob):
                 print(
-                    "got new job",
+                    "got new TrainingJob",
+                    listener.last_accepted,
+                    f"#{jobs.qsize()} in queue",
+                )
+                conn.send(JobInfo(state=JobState.PENDING, no_in_queue=jobs.qsize()))
+            elif isinstance(message, BashJob):
+                print(
+                    "got new BashJob",
                     listener.last_accepted,
                     f"#{jobs.qsize()} in queue",
                 )
