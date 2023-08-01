@@ -15,7 +15,7 @@ class TrainingJob:
     model_name: str
     state: bytes
     client: ClientInfo
-
+@dataclass
 class BashJob:
     command: str
 
