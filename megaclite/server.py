@@ -192,7 +192,10 @@ def worker_main(queue):
         tmp_dir = create_venv_with_requirements(
             message.client.python_version, message.client.packages
         )
-        execute_in_subprocess(tmp_dir, message, conn)
+        if isinstance(message, TrainingJob):
+            execute_in_subprocess(tmp_dir, message, conn)
+        elif isinstance(message, BashJob):
+            execute_bash_script(tmp_dir, message, conn)
 
 
 @click.command()
