@@ -16,6 +16,7 @@ class TrainingJob:
     state: bytes
     client: ClientInfo
 
+
 @dataclass
 class BashJob:
     command: str
@@ -47,4 +48,8 @@ class JobState(enum.Enum):
 class JobInfo:
     state: JobState
     no_in_queue: int
-    result: Optional[bytes] = None
+
+
+@dataclass
+class JobResult:
+    result: bytes

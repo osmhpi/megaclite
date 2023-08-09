@@ -9,11 +9,12 @@ from pathlib import Path
 
 import click
 
-from .messages import BashJob, TrainingJob, JobInfo, JobState, StdOut
+from .messages import BashJob, JobResult, TrainingJob, JobInfo, JobState, StdOut
 
 
 EXCLUDED_PACKAGES = ["megaclite"]
 ADDITIONAL_PACKAGES = ["click"]
+
 
 def install_python_version(version: str):
     """Install the requested python version."""
@@ -24,7 +25,7 @@ def install_python_version(version: str):
 def get_tmp_dir(sub_dir=None):
     """Create a new temporary directory."""
     if sub_dir is None:
-        sub_dir =  datetime.now().isoformat()
+        sub_dir = datetime.now().isoformat()
     tmp_path = Path(tempfile.gettempdir(), "megaclite", sub_dir)
     tmp_path.mkdir(exist_ok=True, parents=True)
     return tmp_path
@@ -63,19 +64,23 @@ def get_output_file(tmp_dir):
 def get_python_with_version(version):
     return Path.home() / f".pyenv/versions/{version}/bin/python3"
 
+
 import hashlib
+
 
 def create_venv_with_requirements(version, requirements: list[str]):
     """Create a new venv with the requested python version and packages."""
     print("creating venv with python version", version)
-    
-    requirements = [r for r in requirements if r.split("==")[0] not in EXCLUDED_PACKAGES]
+
+    requirements = [
+        r for r in requirements if r.split("==")[0] not in EXCLUDED_PACKAGES
+    ]
     requirements.extend(ADDITIONAL_PACKAGES)
     message = hashlib.sha256()
     message.update(version.encode())
     for req in sorted(requirements):
         message.update(req.encode())
-    
+
     tmp_path = get_tmp_dir(message.hexdigest())
     if get_venv(tmp_path).exists():
         return tmp_path
@@ -160,15 +165,13 @@ def execute_in_subprocess(tmp_dir: Path, job: TrainingJob, conn: Connection):
         for line in iter(process.stdout.readline, ""):
             conn.send(StdOut(line))
 
-    conn.send(
-        JobInfo(state=JobState.FINISHED, no_in_queue=0, result=output_file.read_bytes())
-    )
-
+    conn.send(JobInfo(state=JobState.FINISHED, no_in_queue=0))
+    conn.send(JobResult(result=output_file.read_bytes()))
 
 
 def execute_bash_script(tmp_dir: Path, job: BashJob, conn: Connection):
     with subprocess.Popen(
-       ["/bin/bash", "-c", job.command],
+        ["/bin/bash", "-c", job.command],
         stdout=subprocess.PIPE,
         text=True,
         cwd=str(tmp_dir),
@@ -178,8 +181,7 @@ def execute_bash_script(tmp_dir: Path, job: BashJob, conn: Connection):
         for line in iter(process.stdout.readline, ""):
             conn.send(StdOut(line))
 
-    conn.send(
-        JobInfo(state=JobState.FINISHED, no_in_queue=0))
+    conn.send(JobInfo(state=JobState.FINISHED, no_in_queue=0))
 
 
 def worker_main(queue):
