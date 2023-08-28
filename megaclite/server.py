@@ -201,17 +201,18 @@ def worker_main(queue):
 @click.command()
 @click.option("-h", "--host", default="127.0.0.1")
 @click.option("-p", "--port", default=6001, type=int)
+@click.option("-w", "--workers", default=1, type=int)
 # @click.option("--password", prompt=True, hide_input=True)
-def main(host, port):
+def main(host: str, port: int, workers: int):
     """The main function"""
     listener = Listener((host, port))
 
     jobs = Queue()
-    worker = Process(target=worker_main, args=(jobs,))
-    worker.start()
-
-    worker2 = Process(target=worker_main, args=(jobs,))
-    worker2.start()
+    worker_processes = []
+    for _ in range(workers):
+        new_worker = Process(target=worker_main, args=(jobs,))
+        new_worker.start()
+        worker_processes.append(new_worker)
 
     while True:
         try:
@@ -235,8 +236,8 @@ def main(host, port):
         except KeyboardInterrupt:
             print("got Ctrl+C, cleaning up")
             listener.close()
-            worker.join()
-            worker2.join()
+            for worker in worker_processes:
+                worker.join()
             break
         except Exception:  # pylint: disable=broad-exception-caught
             listener.close()
