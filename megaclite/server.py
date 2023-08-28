@@ -210,6 +210,9 @@ def main(host, port):
     worker = Process(target=worker_main, args=(jobs,))
     worker.start()
 
+    worker2 = Process(target=worker_main, args=(jobs,))
+    worker2.start()
+
     while True:
         try:
             conn = listener.accept()
@@ -233,6 +236,7 @@ def main(host, port):
             print("got Ctrl+C, cleaning up")
             listener.close()
             worker.join()
+            worker2.join()
             break
         except Exception:  # pylint: disable=broad-exception-caught
             listener.close()
