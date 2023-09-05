@@ -20,7 +20,7 @@ from IPython.core.magic import (
 )
 
 from .messages import (
-    AbbortJob,
+    AbortJob,
     BashJob,
     ClientInfo,
     JobResult,
