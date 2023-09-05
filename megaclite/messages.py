@@ -15,12 +15,19 @@ class TrainingJob:
     model_name: str
     state: bytes
     client: ClientInfo
+    mig_slices: int
+    uuid: Optional[str] = None
+
+@dataclass
+class AbortJob:
+    uuid: str
 
 
 @dataclass
 class BashJob:
     command: str
     client: ClientInfo
+    uuid: Optional[str] = None
 
 
 @dataclass
@@ -37,17 +44,18 @@ class JobState(enum.Enum):
     STARTED = 2
     REJECTED = 3
     FINISHED = 4
-    ABBORTED = 5
+    ABORTED = 5
 
     @property
     def exited(self):
-        return self in set([JobState.REJECTED, JobState.FINISHED, JobState.ABBORTED])
+        return self in set([JobState.REJECTED, JobState.FINISHED, JobState.ABORTED])
 
 
 @dataclass
 class JobInfo:
     state: JobState
     no_in_queue: int
+    uuid: str
 
 
 @dataclass
