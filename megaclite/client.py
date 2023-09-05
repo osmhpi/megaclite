@@ -115,20 +115,6 @@ class RemoteTrainingMagics(Magics):
 
         self.send_job(job=job, on_success=success_handler)
 
-    # @line_magic
-    # def remote_config(self, line):
-    #     """Use: %remote_config <host> <port> <key>"""
-    #     parser = argparse.ArgumentParser(description="Process some integers.")
-    #     parser.add_argument("host", type=str)
-    #     parser.add_argument("port", type=int)
-    #     # parser.add_argument("key", type=str)
-
-    #     args = parser.parse_args(shlex.split(line))
-
-    #     self.host = args.host
-    #     self.port = args.port
-    #     # self.key = args.key
-
     @line_magic
     def run_remote(self, line):
         """Use: %remote_config <host> <port> <key>"""
@@ -161,21 +147,9 @@ class RemoteTrainingMagics(Magics):
         # <b>{args.memory}</b> of memory and 
         self.send_training_job(cell, local_ns[model_name], model_name, int(args.compute) if args.compute else None)
 
-    # @line_cell_magic
-    # def lcmagic(self, line, cell=None):
-    #     "Magic that works both as %lcmagic and as %%lcmagic"
-    #     if cell is None:
-    #         print("Called as line magic")
-    #         return line
-    #     else:
-    #         print("Called as cell magic")
-    #         return line, cell
-
-
 def pre_run_hook(info):
     info.raw_cell
 
 
 def load_ipython_extension(ipython):
     ipython.register_magics(RemoteTrainingMagics)
-    # ipython.events.register("pre_run_cell", pre_run_hook)
