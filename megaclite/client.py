@@ -1,17 +1,18 @@
-import sys
+"""This module implements the client side jupyter extension of megaclite."""
 import argparse
+import logging
 import shlex
-from datetime import datetime
+import sys
 from io import BytesIO
 from multiprocessing.connection import Client
 from pathlib import Path
 from typing import Optional
 
 import dill
+import ipywidgets
 import toml
 import torch
-import ipywidgets
-from IPython.core.display import HTML, display, clear_output
+from IPython.display import clear_output, display
 from IPython.core.magic import (
     Magics,
     cell_magic,
@@ -19,26 +20,27 @@ from IPython.core.magic import (
     magics_class,
     needs_local_scope,
 )
+from pip._internal.operations import freeze
 
 from .messages import (
     AbortJob,
-    ShellJob,
     ClientInfo,
-    JobResult,
-    TrainingJob,
     JobInfo,
+    JobResult,
     JobState,
+    ShellJob,
     StdOut,
+    TrainingJob,
 )
-from pip._internal.operations import freeze
-import logging
 
 logging.basicConfig(format="%(asctime)s %(message)s")
 
 
 def collect_client_info() -> ClientInfo:
+    """Return a client info object with data from the current environment."""
     return ClientInfo(
-        python_version=sys.version.split(" ")[0], packages=list(freeze.freeze())
+        python_version=sys.version.split(" ", maxsplit=1)[0],
+        packages=list(freeze.freeze()),
     )
 
 
@@ -47,6 +49,8 @@ COMPUTE_CONFIGS = ["1", "2", "3", "4", "7"]
 
 @magics_class
 class RemoteTrainingMagics(Magics):
+    """Implements the IPython magic extension."""
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.host: str = "127.0.0.1"
@@ -62,14 +66,17 @@ class RemoteTrainingMagics(Magics):
         print(self.host, self.port)
 
     def print(self, value: str):
+        """Print a message to the currently active message box."""
         self.message_box.value = value
 
     def init_print(self):
+        """Initialize a new output message box."""
         clear_output()
         self.message_box = ipywidgets.HTML()
         display(self.message_box)
 
     def send_job(self, job, on_success: Optional[callable] = None):
+        """Send the job to the server and process responses."""
         address = (self.host, self.port)
         conn = Client(address)
         try:
@@ -87,10 +94,10 @@ class RemoteTrainingMagics(Magics):
                         )
                     elif message.state == JobState.STARTED:
                         logging.info("processing job started")
-                        self.print(f"<i>Job started executing.<i>")
+                        self.print("<i>Job started executing.<i>")
                     elif message.state == JobState.FINISHED:
                         logging.info("processing job finished")
-                        self.print(f"<i>Retrieving weights from remote.<i>")
+                        self.print("<i>Retrieving weights from remote.<i>")
                         if on_success:
                             logging.info("retrieving weights from remote")
                             result = conn.recv()
@@ -104,6 +111,7 @@ class RemoteTrainingMagics(Magics):
                 elif isinstance(message, StdOut):
                     print(message.line, end="")
         except KeyboardInterrupt:
+            # pylint: disable=used-before-assignment
             self.print(f"<i>Aborting job with uuid {job_uuid}.<i>")
             conn.send(AbortJob(uuid=job_uuid))
             result = conn.recv()
@@ -111,6 +119,7 @@ class RemoteTrainingMagics(Magics):
                 self.print(f"<i>Job with uuid {job_uuid} was aborted.<i>")
 
     def send_training_job(self, cell: str, model, model_name: str, mig_slices: int):
+        """Create, preprocess, send, and postprocess a training job."""
         logging.info("new training job")
         file = BytesIO()
         dill.dump_module(file)
@@ -170,9 +179,6 @@ class RemoteTrainingMagics(Magics):
         )
 
 
-def pre_run_hook(info):
-    info.raw_cell
-
-
 def load_ipython_extension(ipython):
+    """Register the megaclite magic with ipython."""
     ipython.register_magics(RemoteTrainingMagics)

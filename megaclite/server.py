@@ -1,39 +1,39 @@
 """This module implements the server for the remote GPU extension."""
+import hashlib
 import os
 import re
 import subprocess
 import tempfile
+import uuid
 from datetime import datetime
 from multiprocessing import Process, Queue
 from multiprocessing.connection import Connection, Listener
 from pathlib import Path
 from typing import Optional
-import uuid
 
 import click
+from pynvml3.device import MigDevice
+from pynvml3.enums import ComputeInstanceProfile, GpuInstanceProfile
+from pynvml3.pynvml import NVMLLib
 
 from .messages import (
     AbortJob,
-    ShellJob,
-    JobResult,
-    TrainingJob,
     JobInfo,
+    JobResult,
     JobState,
+    ShellJob,
     StdOut,
+    TrainingJob,
 )
-
-from pynvml3.device import MigDevice
-from pynvml3.enums import (
-    ComputeInstanceProfile,
-    GpuInstanceProfile,
-)
-from pynvml3.pynvml import NVMLLib
 
 EXCLUDED_PACKAGES = ["megaclite", ".*pynvml3"]
 ADDITIONAL_PACKAGES = ["click"]
 
 
 class MigSlice:
+    """Context manager to aquire a mig slice (gpu+compute instance)."""
+
+    # pylint: disable=too-many-instance-attributes
     def __init__(
         self,
         device_id: int,
@@ -55,7 +55,7 @@ class MigSlice:
         self.lib.open()
         self.device = self.lib.device.from_index(self.device_id)
         self.device.mig_version = 1
-        self.uuid = self.create_mig_slice()
+        self.uuid = self._create_mig_slice()
         return self
 
     def __exit__(self, *argc, **kwargs):
@@ -63,7 +63,11 @@ class MigSlice:
         self.gpu_instance.destroy()
         self.lib.close()
 
-    def create_mig_slice(self):
+    def _create_mig_slice(self):
+        """Create the requested gpu and compute slice.
+
+        Returns the uuid of the corresponding, created mig device.
+        """
         print("requesting", self.gi_profile, self.ci_profile)
         print(
             "capacity", self.device.get_gpu_instance_remaining_capacity(self.gi_profile)
@@ -97,41 +101,39 @@ def get_tmp_dir(sub_dir=None):
     return tmp_path
 
 
-def get_venv(tmp_dir):
+def get_venv(tmp_dir: Path) -> Path:
     """Return path to venv."""
     return tmp_dir / "venv"
 
 
-def get_pip(tmp_dir):
+def get_pip(tmp_dir: Path) -> Path:
     """Return path to pip."""
     return get_venv(tmp_dir) / "bin/pip"
 
 
-def get_python(tmp_dir):
+def get_python(tmp_dir: Path) -> Path:
     """Return path to python interpreter."""
     return get_venv(tmp_dir) / "bin/python"
 
 
-def get_state_file(tmp_dir):
+def get_state_file(tmp_dir: Path) -> Path:
     """Return path to state file."""
     return tmp_dir / "state.pkl"
 
 
-def get_cell_file(tmp_dir):
+def get_cell_file(tmp_dir: Path) -> Path:
     """Return path to cell file."""
     return tmp_dir / "cell.py"
 
 
-def get_output_file(tmp_dir):
+def get_output_file(tmp_dir: Path) -> Path:
     """Return path to output."""
     return tmp_dir / "output.pt"
 
 
-def get_python_with_version(version):
+def get_python_with_version(version: str) -> Path:
+    """Return a path to a python interpreter with the specified version."""
     return Path.home() / f".pyenv/versions/{version}/bin/python3"
-
-
-import hashlib
 
 
 def create_venv_with_requirements(version, requirements: list[str]):
@@ -186,25 +188,6 @@ class RemoteStdout:
         self.conn.send(StdOut(text))
 
 
-# def reexecute_and_train(state_file: str, cell: str, model_name: str, queue):
-#     """This function runs in the subprocess."""
-#     # import these modules only in the subprocess
-#     import dill  # pylint: disable=import-outside-toplevel
-#     import torch  # pylint: disable=import-outside-toplevel
-
-#     # load state from the users notebook
-#     file = BytesIO(state_file)
-#     dill.load_module(file)
-
-#     # train the model
-#     exec(cell)  # pylint: disable=exec-used
-
-#     # save the model
-#     out_file = BytesIO()
-#     torch.save(globals()[model_name].state_dict(), out_file)
-#     queue.put(out_file.getvalue())
-
-
 def execute_in_subprocess(tmp_dir: Path, job: TrainingJob, conn: Connection, gpu=None):
     """Setup the subprocess execution with stdout redirect."""
 
@@ -245,7 +228,8 @@ def execute_in_subprocess(tmp_dir: Path, job: TrainingJob, conn: Connection, gpu
     conn.send(JobResult(result=output_file.read_bytes()))
 
 
-def execute_bash_script(tmp_dir: Path, job: ShellJob, conn: Connection):
+def execute_shell_script(tmp_dir: Path, job: ShellJob, conn: Connection):
+    """Run the specified shell script in a subprocess and stream the output."""
     with subprocess.Popen(
         ["/bin/bash", "-c", job.command],
         stdout=subprocess.PIPE,
@@ -281,16 +265,16 @@ def worker_main(queue, gpus):
                 execute_in_subprocess(tmp_dir, message, conn, gpu)
                 gpus.put(gpu)
         elif isinstance(message, ShellJob):
-            execute_bash_script(tmp_dir, message, conn)
+            execute_shell_script(tmp_dir, message, conn)
 
 
+# pylint: disable=too-many-locals
 @click.command()
 @click.option("-h", "--host", default="127.0.0.1", type=str)
 @click.option("-p", "--port", default=6001, type=int)
 @click.option("-w", "--workers", default=1, type=int)
 @click.option("-s", "--socket", default=None, type=str)
 @click.option("-g", "--gpu", multiple=True, default=["0"])
-# @click.option("--password", prompt=True, hide_input=True)
 def main(host: str, port: int, workers: int, socket: Optional[str], gpu: list[str]):
     """The main function"""
     if socket is not None:
