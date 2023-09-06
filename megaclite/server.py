@@ -7,6 +7,7 @@ from datetime import datetime
 from multiprocessing import Process, Queue
 from multiprocessing.connection import Connection, Listener
 from pathlib import Path
+from typing import Optional
 import uuid
 
 import click
@@ -139,13 +140,14 @@ def create_venv_with_requirements(version, requirements: list[str]):
         [get_python_with_version(version), "-m", "venv", str(get_venv(tmp_path))],
         check=True,
     )
-    print("installing packages")
+    print("installing user packages")
     subprocess.run(
         [str(get_pip(tmp_path)), "install", "-r", "/dev/stdin"],
         input="\n".join(requirements),
         text=True,
         check=True,
     )
+    print("installing megaclite")
     subprocess.run(
         [str(get_pip(tmp_path)), "install", "."],
         text=True,
@@ -262,24 +264,33 @@ def worker_main(queue, gpus):
 
 
 @click.command()
-@click.option("-h", "--host", default="127.0.0.1")
+@click.option("-h", "--host", default="127.0.0.1", type=str)
 @click.option("-p", "--port", default=6001, type=int)
 @click.option("-w", "--workers", default=1, type=int)
+@click.option("-s", "--socket", default=None, type=str)
+@click.option("-g", "--gpu", multiple=True, default=["0"])
 # @click.option("--password", prompt=True, hide_input=True)
-def main(host: str, port: int, workers: int):
+def main(host: str, port: int, workers: int, socket: Optional[str], gpu: list[str]):
     """The main function"""
-    listener = Listener((host, port))
+    if socket is not None:
+        listener = Listener(socket)
+    else:
+        listener = Listener((host, port))
 
     jobs = Queue()
     worker_processes = []
     gpus = Queue()
-    gpus.put("GPU-38f8fa35-6e28-024a-aa8d-893ad0020924")
-    gpus.put("GPU-38f8fa35-6e28-024a-aa8d-893ad0020924")
-    gpus.put("GPU-38f8fa35-6e28-024a-aa8d-893ad0020924")
+    for gpu_item in gpu:
+        gpus.put(gpu_item)
+
     for _ in range(workers):
         new_worker = Process(target=worker_main, args=(jobs,gpus,))
         new_worker.start()
         worker_processes.append(new_worker)
+    
+    # if we don't have 1 GPU per worker, we will overbook gpus
+    for index in range(max(len(gpu)-workers,0)):
+        gpus.put(gpu[index%len(gpu)])
 
     while True:
         try:
