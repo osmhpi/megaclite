@@ -29,3 +29,14 @@ ssh -L 6001:127.0.0.1:6001 vm-midea04.eaalab.hpi.uni-potsdam.de
 You should now be able to run the `client.ipynb` notebook.
 
 The first run will probably be quite slow, because the server will recreate your local venv, including compiling the correct python version.
+
+## Server Setup
+
+You need pyenv installed.
+make sure to have the following packages installed
+
+- libsqlite3-dev
+- libsqlite3-dev liblzma-dev libctypes-ocaml libreadline-dev libbz2-dev 
+
+libffi-dev  ?
+libssl-dev ?
