@@ -24,7 +24,7 @@ class AbortJob:
 
 
 @dataclass
-class BashJob:
+class ShellJob:
     command: str
     client: ClientInfo
     uuid: Optional[str] = None

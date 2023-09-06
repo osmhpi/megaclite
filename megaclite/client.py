@@ -21,7 +21,7 @@ from IPython.core.magic import (
 
 from .messages import (
     AbortJob,
-    BashJob,
+    ShellJob,
     ClientInfo,
     JobResult,
     TrainingJob,
@@ -120,7 +120,7 @@ class RemoteTrainingMagics(Magics):
         """Use: %remote_config <host> <port> <key>"""
         self.init_print()
         self.print(f"<i>executing command `{line}` on remote host</i>")
-        job = BashJob(command=line, client=collect_client_info())
+        job = ShellJob(command=line, client=collect_client_info())
         print(job.client.packages)
         self.send_job(job=job)
 

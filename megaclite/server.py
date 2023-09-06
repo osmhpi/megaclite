@@ -11,7 +11,7 @@ import uuid
 
 import click
 
-from .messages import AbortJob, BashJob, JobResult, TrainingJob, JobInfo, JobState, StdOut
+from .messages import AbortJob, ShellJob, JobResult, TrainingJob, JobInfo, JobState, StdOut
 
 from pynvml3.device import MigDevice
 from pynvml3.enums import (
@@ -225,7 +225,7 @@ def execute_in_subprocess(tmp_dir: Path, job: TrainingJob, conn: Connection, gpu
     conn.send(JobResult(result=output_file.read_bytes()))
 
 
-def execute_bash_script(tmp_dir: Path, job: BashJob, conn: Connection):
+def execute_bash_script(tmp_dir: Path, job: ShellJob, conn: Connection):
     with subprocess.Popen(
         ["/bin/bash", "-c", job.command],
         stdout=subprocess.PIPE,
@@ -257,7 +257,7 @@ def worker_main(queue, gpus):
                 gpu = gpus.get()
                 execute_in_subprocess(tmp_dir, message, conn, gpu)
                 gpus.put(gpu)
-        elif isinstance(message, BashJob):
+        elif isinstance(message, ShellJob):
             execute_bash_script(tmp_dir, message, conn)
 
 
@@ -294,7 +294,7 @@ def main(host: str, port: int, workers: int):
                 job_uuid = str(uuid.uuid4())
                 message.uuid = job_uuid
                 conn.send(JobInfo(state=JobState.PENDING, no_in_queue=jobs.qsize(), uuid=job_uuid))
-            elif isinstance(message, BashJob):
+            elif isinstance(message, ShellJob):
                 print(
                     "got new BashJob",
                     listener.last_accepted,
