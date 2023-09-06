@@ -18,6 +18,7 @@ class TrainingJob:
     mig_slices: int
     uuid: Optional[str] = None
 
+
 @dataclass
 class AbortJob:
     uuid: str

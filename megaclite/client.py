@@ -41,7 +41,9 @@ def collect_client_info() -> ClientInfo:
         python_version=sys.version.split(" ")[0], packages=list(freeze.freeze())
     )
 
-COMPUTE_CONFIGS = ["1","2","3","4","7"]
+
+COMPUTE_CONFIGS = ["1", "2", "3", "4", "7"]
+
 
 @magics_class
 class RemoteTrainingMagics(Magics):
@@ -75,7 +77,7 @@ class RemoteTrainingMagics(Magics):
             conn.send(job)
             logging.info("sending job finished")
             job_uuid = None
-            
+
             while message := conn.recv():
                 if isinstance(message, JobInfo):
                     job_uuid = message.uuid
@@ -95,7 +97,9 @@ class RemoteTrainingMagics(Magics):
                             logging.info("retrieving weights from remote finished")
                             on_success(result)
                     if message.state.exited:
-                        self.print(f"<i>Job exited with status {str(message.state)}.<i>")
+                        self.print(
+                            f"<i>Job exited with status {str(message.state)}.<i>"
+                        )
                         break
                 elif isinstance(message, StdOut):
                     print(message.line, end="")
@@ -112,7 +116,11 @@ class RemoteTrainingMagics(Magics):
         dill.dump_module(file)
         self.print(f"<i>Sending {len(file.getbuffer())/2**20:.0f}MB of state.<i>")
         job = TrainingJob(
-            cell, model_name, file.getvalue(), client=collect_client_info(),mig_slices=mig_slices
+            cell,
+            model_name,
+            file.getvalue(),
+            client=collect_client_info(),
+            mig_slices=mig_slices,
         )
 
         def success_handler(result: JobResult):
@@ -137,7 +145,7 @@ class RemoteTrainingMagics(Magics):
     def train_remote(self, line, cell, local_ns):
         """Use: %%remote <model> [<compute-slices>]"""
         self.init_print()
-        
+
         parser = argparse.ArgumentParser(description="Remote training job args.")
         parser.add_argument("model", type=str)
         # parser.add_argument('-m', '--mig',
@@ -148,12 +156,19 @@ class RemoteTrainingMagics(Magics):
         args = parser.parse_args(shlex.split(line))
 
         model_name = args.model
-        shared_text = "" # "shared" if args.shared else "dedicated"
-        self.print(f"<i>training <b>{model_name}</b> on a <b>{shared_text}</b> remote gpu</i>"+ \
-                   f"<br><i>MIG: requesting <b>{args.compute}</b> compute slices<i>"
-                   )
-        # <b>{args.memory}</b> of memory and 
-        self.send_training_job(cell, local_ns[model_name], model_name, int(args.compute) if args.compute else None)
+        shared_text = ""  # "shared" if args.shared else "dedicated"
+        self.print(
+            f"<i>training <b>{model_name}</b> on a <b>{shared_text}</b> remote gpu</i>"
+            + f"<br><i>MIG: requesting <b>{args.compute}</b> compute slices<i>"
+        )
+        # <b>{args.memory}</b> of memory and
+        self.send_training_job(
+            cell,
+            local_ns[model_name],
+            model_name,
+            int(args.compute) if args.compute else None,
+        )
+
 
 def pre_run_hook(info):
     info.raw_cell

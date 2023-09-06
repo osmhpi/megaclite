@@ -12,7 +12,15 @@ import uuid
 
 import click
 
-from .messages import AbortJob, ShellJob, JobResult, TrainingJob, JobInfo, JobState, StdOut
+from .messages import (
+    AbortJob,
+    ShellJob,
+    JobResult,
+    TrainingJob,
+    JobInfo,
+    JobState,
+    StdOut,
+)
 
 from pynvml3.device import MigDevice
 from pynvml3.enums import (
@@ -25,9 +33,13 @@ EXCLUDED_PACKAGES = ["megaclite", ".*pynvml3"]
 ADDITIONAL_PACKAGES = ["click"]
 
 
-
 class MigSlice:
-    def __init__(self, device_id: int, gi_profile: GpuInstanceProfile, ci_profile: ComputeInstanceProfile) -> None:
+    def __init__(
+        self,
+        device_id: int,
+        gi_profile: GpuInstanceProfile,
+        ci_profile: ComputeInstanceProfile,
+    ) -> None:
         self.device_id = device_id
         self.gi_profile = gi_profile
         self.ci_profile = ci_profile
@@ -37,7 +49,7 @@ class MigSlice:
         self.compute_instance = None
         self.gpu_instance = None
         self.mig_device = None
-    
+
     def __enter__(self):
         self.lib = NVMLLib()
         self.lib.open()
@@ -53,9 +65,14 @@ class MigSlice:
 
     def create_mig_slice(self):
         print("requesting", self.gi_profile, self.ci_profile)
-        print("capacity", self.device.get_gpu_instance_remaining_capacity(self.gi_profile))
+        print(
+            "capacity", self.device.get_gpu_instance_remaining_capacity(self.gi_profile)
+        )
         self.gpu_instance = self.device.create_gpu_instance(self.gi_profile)
-        print("remaining capacity after creating", self.device.get_gpu_instance_remaining_capacity(self.gi_profile))
+        print(
+            "remaining capacity after creating",
+            self.device.get_gpu_instance_remaining_capacity(self.gi_profile),
+        )
         self.compute_instance = self.gpu_instance.create_compute_instance(
             self.ci_profile
         )
@@ -63,7 +80,6 @@ class MigSlice:
         mig_uuid = self.mig_device.get_uuid()
         print("mig uuid", mig_uuid)
         return mig_uuid
-
 
 
 def install_python_version(version: str):
@@ -123,7 +139,9 @@ def create_venv_with_requirements(version, requirements: list[str]):
     print("creating venv with python version", version)
 
     requirements = [
-        r for r in requirements if re.search(f"({'|'.join(EXCLUDED_PACKAGES)})", r.split("==")[0]) is None
+        r
+        for r in requirements
+        if re.search(f"({'|'.join(EXCLUDED_PACKAGES)})", r.split("==")[0]) is None
     ]
     requirements.extend(ADDITIONAL_PACKAGES)
     message = hashlib.sha256()
@@ -216,7 +234,7 @@ def execute_in_subprocess(tmp_dir: Path, job: TrainingJob, conn: Connection, gpu
         stdout=subprocess.PIPE,
         text=True,
         cwd=str(tmp_dir),
-        env = env,
+        env=env,
     ) as process:
         conn.send(JobInfo(state=JobState.STARTED, no_in_queue=0, uuid=job.uuid))
 
@@ -252,8 +270,11 @@ def worker_main(queue, gpus):
         )
         if isinstance(message, TrainingJob):
             if message.mig_slices is not None:
-                with MigSlice(device_id=1, gi_profile=GpuInstanceProfile.from_int(message.mig_slices), 
-                          ci_profile=ComputeInstanceProfile.from_int(message.mig_slices)) as mig_slice:
+                with MigSlice(
+                    device_id=1,
+                    gi_profile=GpuInstanceProfile.from_int(message.mig_slices),
+                    ci_profile=ComputeInstanceProfile.from_int(message.mig_slices),
+                ) as mig_slice:
                     execute_in_subprocess(tmp_dir, message, conn, mig_slice.uuid)
             else:
                 gpu = gpus.get()
@@ -284,13 +305,19 @@ def main(host: str, port: int, workers: int, socket: Optional[str], gpu: list[st
         gpus.put(gpu_item)
 
     for _ in range(workers):
-        new_worker = Process(target=worker_main, args=(jobs,gpus,))
+        new_worker = Process(
+            target=worker_main,
+            args=(
+                jobs,
+                gpus,
+            ),
+        )
         new_worker.start()
         worker_processes.append(new_worker)
-    
+
     # if we don't have 1 GPU per worker, we will overbook gpus
-    for index in range(max(len(gpu)-workers,0)):
-        gpus.put(gpu[index%len(gpu)])
+    for index in range(max(len(gpu) - workers, 0)):
+        gpus.put(gpu[index % len(gpu)])
 
     while True:
         try:
@@ -304,7 +331,11 @@ def main(host: str, port: int, workers: int, socket: Optional[str], gpu: list[st
                 )
                 job_uuid = str(uuid.uuid4())
                 message.uuid = job_uuid
-                conn.send(JobInfo(state=JobState.PENDING, no_in_queue=jobs.qsize(), uuid=job_uuid))
+                conn.send(
+                    JobInfo(
+                        state=JobState.PENDING, no_in_queue=jobs.qsize(), uuid=job_uuid
+                    )
+                )
             elif isinstance(message, ShellJob):
                 print(
                     "got new BashJob",
@@ -313,7 +344,11 @@ def main(host: str, port: int, workers: int, socket: Optional[str], gpu: list[st
                 )
                 job_uuid = str(uuid.uuid4())
                 message.uuid = job_uuid
-                conn.send(JobInfo(state=JobState.PENDING, no_in_queue=jobs.qsize(), uuid=job_uuid))
+                conn.send(
+                    JobInfo(
+                        state=JobState.PENDING, no_in_queue=jobs.qsize(), uuid=job_uuid
+                    )
+                )
             elif isinstance(message, AbortJob):
                 print("aborting job with uuid", message.uuid)
             jobs.put((message, conn))
