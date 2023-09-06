@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Optional
 
 import dill
+import toml
 import torch
 import ipywidgets
 from IPython.core.display import HTML, display, clear_output
@@ -50,6 +51,13 @@ class RemoteTrainingMagics(Magics):
         self.port: str = 6001
         self.key: str = None
         self.message_box = None
+
+        megaclite_rc_path = Path(".megacliterc")
+        if megaclite_rc_path.exists():
+            megaclite_rc = toml.load(megaclite_rc_path)
+            self.host = megaclite_rc.get("host", self.host)
+            self.port = megaclite_rc.get("port", self.port)
+        print(self.host, self.port)
 
     def print(self, value: str):
         self.message_box.value = value
