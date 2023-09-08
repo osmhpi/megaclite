@@ -8,17 +8,16 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "megaclite"
-version = "0.0.4"
 description = "Remote GPU training for Jupyter"
 requires-python = ">=3.9"
 authors = [{name = "Felix Grzelka", email = "Felix.Grzelka@hpi.de"}]
 license = {file = "LICENSE"}
 classifiers = ["License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)"]
 dynamic = [
-    #"version",
+    "version",
     "readme"]
 dependencies = [
-    "dill==0.3.6",
+    "dill==0.3.7",
     "ipython==8.13.1",
     "ipykernel==6.22.0",
     "click==8.1.3",
@@ -38,5 +37,5 @@ demo = ["torch==2.0.0",
     ]
 
 [tool.setuptools.dynamic]
-# version = {attr = "my_package.VERSION"}
+version = {attr = "megaclite.__version__"}
 readme = {file = ["README.md"]}
