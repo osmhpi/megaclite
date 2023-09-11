@@ -1,5 +1,6 @@
 """This module implements the client side jupyter extension of megaclite."""
 import argparse
+import datetime
 import logging
 import shlex
 import sys
@@ -32,8 +33,8 @@ from .messages import (
     StdOut,
     TrainingJob,
 )
+from . import __version__ as VERSION
 
-logging.basicConfig(format="%(asctime)s %(message)s")
 
 
 def collect_client_info() -> ClientInfo:
@@ -53,17 +54,25 @@ class RemoteTrainingMagics(Magics):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        print(f"loading megaclite version {VERSION}")
         self.host: str = "127.0.0.1"
         self.port: str = 6001
         self.key: str = None
         self.message_box = None
+        self.socket = None
+        self.address = None
 
         megaclite_rc_path = Path(".megacliterc")
         if megaclite_rc_path.exists():
             megaclite_rc = toml.load(megaclite_rc_path)
             self.host = megaclite_rc.get("host", self.host)
             self.port = megaclite_rc.get("port", self.port)
-        print(self.host, self.port)
+            self.socket = megaclite_rc.get("socket", self.socket)
+        if self.socket is not None:
+            self.address = self.socket
+        else:
+            self.address = (self.host, self.port)
+        print(self.address)
 
     def print(self, value: str):
         """Print a message to the currently active message box."""
@@ -77,8 +86,7 @@ class RemoteTrainingMagics(Magics):
 
     def send_job(self, job, on_success: Optional[callable] = None):
         """Send the job to the server and process responses."""
-        address = (self.host, self.port)
-        conn = Client(address)
+        conn = Client(self.address)
         try:
             logging.info("sending job start")
             conn.send(job)
@@ -99,7 +107,7 @@ class RemoteTrainingMagics(Magics):
                         logging.info("processing job finished")
                         self.print("<i>Retrieving weights from remote.<i>")
                         if on_success:
-                            logging.info("retrieving weights from remote")
+                            logging.info("retrieving weights from remote started")
                             result = conn.recv()
                             logging.info("retrieving weights from remote finished")
                             on_success(result)
@@ -120,8 +128,9 @@ class RemoteTrainingMagics(Magics):
 
     def send_training_job(self, cell: str, model, model_name: str, mig_slices: int):
         """Create, preprocess, send, and postprocess a training job."""
-        logging.info("new training job")
         file = BytesIO()
+        logging.info("pickling start")
+        
         dill.dump_module(file)
         self.print(f"<i>Sending {len(file.getbuffer())/2**20:.0f}MB of state.<i>")
         job = TrainingJob(
@@ -132,6 +141,7 @@ class RemoteTrainingMagics(Magics):
             mig_slices=mig_slices,
         )
 
+        logging.info("pickling finished")
         def success_handler(result: JobResult):
             weights_file = BytesIO(result.result)
             device = torch.device("cpu")
@@ -148,6 +158,11 @@ class RemoteTrainingMagics(Magics):
         job = ShellJob(command=line, client=collect_client_info())
         print(job.client.packages)
         self.send_job(job=job)
+    
+    @line_magic
+    def tag_benchmark(self, line):
+        logging.basicConfig(format=f"%(asctime)s,%(message)s,{VERSION},{line}",filename='log.log', encoding='utf-8',level=logging.INFO)
+    logging.Formatter.formatTime = (lambda self, record, datefmt=None: datetime.datetime.now().isoformat())
 
     @cell_magic
     @needs_local_scope
